@@ -16,13 +16,14 @@ using std::vector;
 
 
 //decrease the forward speed (never slower than zero)
-void slow_down(double rate) {
-   if ((ref_vel-slow_factor) > target_velocity) {ref_vel -= rate;}
+void slow_down(double rate) {  
+   rate = (rate > 1.5) ? 1.5 : rate;
+   if ((ref_vel-rate) > target_velocity) {ref_vel -= rate;}
 }  
 
 //increase the forward speed (never faster than max_speed)
 void speed_up(double rate) {
-   //std::cout << "speed_up" << std::endl;
+   rate = (rate > 1.5) ? 1.5 : rate;
    if ((ref_vel+rate) < target_velocity) {ref_vel += rate;}
 }
 
@@ -367,7 +368,7 @@ int main() {
             } 
           }  //end sensor_fusion set
           
-          too_close = true;
+          too_close = false;
           too_slow = true;
           target_lane_open = false;
           target_velocity = max_speed;  //if current lane is empty get target_vel
@@ -383,9 +384,6 @@ int main() {
                  target_velocity = current_lane_info.ahead_speed; 
                  lane_change_desired = true;
                 // std::cout << "LOOK OUT!" << std::endl;
-                               
-                 slow_factor = (ref_vel-target_velocity)/distance_to_target;  
-                 slow_factor *= slow_multiplier;
               } 
             
               if (!stuck && !too_close) {lane_change_desired = false;}
@@ -418,37 +416,33 @@ int main() {
                      same_lane_slow += .1;
                  }
                 
-                 if (change_lane) {same_lane_slow = 0;look_back=false;}
-                /*
                  if (change_lane) {
-                     std::cout << "change_lane-"  
-                               << "same_lane_slow: " << same_lane_slow << std::endl;
-                 } else {
-                   std::cout << "NO CHANGE-" 
-                             << "same_lane_slow: " << same_lane_slow << std::endl;
+                   same_lane_slow = 0;
+                   look_back=false;
                  }
-                 */            
-     
+                       
               } //ahead not < safe distance
             
           }  //end else !empty
-          
-          //determine if we are stuck; look_back 
-          stuck = (same_lane_slow > 1.); 
-          if (stuck && look_back) {
-             if (follow_distance < 35) {
-                 follow_distance += .2;
-                 target_velocity -= .2;
-                 too_slow = false;
-             } else {look_back = false;}  //if greater than 35
-          } else if (stuck && !look_back) {  //looking forward
-             if (follow_distance > 8) {
-                 follow_distance -= .2;
-                 target_velocity += .2;
-                 too_close = true;
-             } else {look_back = true;}
+         
+           if (too_close) {too_slow = false;}
+           else {//skip this section if too_close
+          //determine if we are stuck; look_back    
+            stuck = (same_lane_slow > 1.); 
+            if (stuck && look_back) {
+               if (follow_distance < 35) {
+                   follow_distance += .2;
+                   target_velocity -= .2;
+                   too_slow = false;
+               } else {look_back = false;}  //if greater than 35
+            } else if (stuck && !look_back) {  //looking forward
+               if (follow_distance > 8) {
+                   follow_distance -= .2;
+                   target_velocity += .2;
+                   too_close = true;
+               } else {look_back = true;}
+             }
           }
-          
           if (stuck) {lane_change_desired = true;}
          
           if (!stuck) {  //reset
@@ -456,8 +450,7 @@ int main() {
             lane_change_desired = false;
           }
            
-          
-          if (too_slow) {speed_up((target_velocity-ref_vel)/50);}
+          if (too_slow) {speed_up((target_velocity-ref_vel)/distance_to_target);}
           if (too_close) {slow_down((ref_vel-target_velocity)/distance_to_target);}
                                     
           auto points = generate_points(car_x, car_y, car_yaw, car_s, prev_size,
